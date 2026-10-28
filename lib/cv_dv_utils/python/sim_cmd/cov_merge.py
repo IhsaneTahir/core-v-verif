@@ -1,5 +1,6 @@
+# Copyright (c) 2026 OpenHW Foundation
+# Copyright (c) 2026 Eclipse Foundation
 # SPDX-License-Identifier: Apache-2.0
-# TODO: set the correct copyright holder for this file before committing.
 
 import argparse
 import glob
@@ -28,13 +29,14 @@ if os.path.isdir(cov_dir) == False:
     exit(1)
 
 out_path = os.path.join(cov_dir, out_file)
+base, ext = os.path.splitext(out_path)
+excl_out = f"{base}_excluded{ext}"
 
-# exclude any previous merge products (this run's out_file, and any
-# already-produced merged*/*_excluded.ucdb) so reruns don't self-include
+# Only this run's own products are skipped; merge products left by runs with a
+# different --out_file are indistinguishable from per-test UCDBs and will be merged.
 all_ucdb = sorted(glob.glob(os.path.join(cov_dir, "*.ucdb")))
 inputs = [f for f in all_ucdb
-          if os.path.basename(f) != out_file
-          and not os.path.basename(f).startswith("merged")]
+          if os.path.basename(f) not in (out_file, os.path.basename(excl_out))]
 
 if not inputs:
     print(f"[ERROR]: No per-test UCDB files found under {cov_dir}")
@@ -57,12 +59,12 @@ if args.excl_file:
     if os.path.isfile(args.excl_file) == False:
         print(f"[ERROR]: exclusion file {args.excl_file} not found")
         exit(1)
-    base, ext = os.path.splitext(out_path)
-    excl_out = f"{base}_excluded{ext}"
     do_cmd = f'vsim -c -viewcov {out_path} -do "source {args.excl_file}; coverage save {excl_out}; exit"'
     if verbose: print(f"[INFO]: Exclusion command:\n{do_cmd}")
-    os.system(do_cmd)
-    if os.path.isfile(excl_out) == False:
+    if os.path.isfile(excl_out):
+        os.remove(excl_out)
+    ret = os.system(do_cmd)
+    if ret != 0 or os.path.isfile(excl_out) == False:
         print(f"[ERROR]: applying exclusions failed -- {excl_out} was not created (see vsim output above)")
         exit(1)
     print(f"[INFO]: Pre-waiver UCDB preserved at {out_path}; post-waiver UCDB written to {excl_out}")

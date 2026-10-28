@@ -155,7 +155,9 @@ else:
       if args.cover_excl_file:
           merge_cmd += f" --excl_file {args.cover_excl_file}"
       if verbose: print(f"[INFO] Coverage merge command:\n{merge_cmd}")
-      os.system(merge_cmd)
+      if os.system(merge_cmd) != 0:
+          print("[ERROR]: Coverage merge failed")
+          exit(1)
 
       if cover_report == 1:
           merged_ucdb = os.path.join(outdir, "coverage",
